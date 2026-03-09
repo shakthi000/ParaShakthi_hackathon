@@ -10,6 +10,71 @@
     let reportSelectedLatLng = null;
     let routesMapPreview = null;
     let routesPreviewLayers = null;
+    let lastKnownSosLocation = null;
+
+    const EMERGENCY_CONTACTS_KEY = 'parashakthi_emergency_contacts';
+
+    // -------------------- Emergency Contacts Storage --------------------
+
+    function getEmergencyContacts() {
+        try {
+            const raw = localStorage.getItem(EMERGENCY_CONTACTS_KEY);
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.error('Failed to read emergency contacts', e);
+            return [];
+        }
+    }
+
+    function saveEmergencyContacts(contacts) {
+        try {
+            localStorage.setItem(EMERGENCY_CONTACTS_KEY, JSON.stringify(contacts || []));
+        } catch (e) {
+            console.error('Failed to save emergency contacts', e);
+        }
+        renderEmergencyContacts();
+    }
+
+    function normalizePhoneNumber(phone) {
+        if (!phone) return '';
+        return phone.replace(/[^\d]/g, '');
+    }
+
+    function addEmergencyContact(name, phone, details) {
+        const trimmedName = (name || '').trim();
+        const trimmedPhone = (phone || '').trim();
+        const cleanedPhone = normalizePhoneNumber(trimmedPhone);
+        const info = (details || '').trim();
+
+        if (!trimmedName || !cleanedPhone) {
+            alert('Please provide both a name and a valid phone number.');
+            return;
+        }
+
+        if (cleanedPhone.length < 6) {
+            alert('Please enter a valid phone number with country code.');
+            return;
+        }
+
+        const contacts = getEmergencyContacts();
+        contacts.push({ name: trimmedName, phone: cleanedPhone, details: info });
+        saveEmergencyContacts(contacts);
+    }
+
+    function deleteEmergencyContact(index) {
+        const contacts = getEmergencyContacts();
+        if (index < 0 || index >= contacts.length) return;
+        contacts.splice(index, 1);
+        saveEmergencyContacts(contacts);
+    }
+
+    // Expose core APIs globally for safety / HTML usage
+    window.getEmergencyContacts = getEmergencyContacts;
+    window.saveEmergencyContacts = saveEmergencyContacts;
+    window.addEmergencyContact = addEmergencyContact;
+    window.deleteEmergencyContact = deleteEmergencyContact;
 
     function init() {
         MapModule.init();
@@ -214,6 +279,36 @@
                 }
             });
         });
+
+        // Emergency contacts UI
+        document.getElementById('addEmergencyContactBtn')?.addEventListener('click', () => {
+            const modal = document.getElementById('emergencyContactModal');
+            if (modal) modal.classList.remove('hidden');
+            const nameInput = document.getElementById('contactName');
+            const phoneInput = document.getElementById('contactPhone');
+            const detailsInput = document.getElementById('contactDetails');
+            if (nameInput) nameInput.value = '';
+            if (phoneInput) phoneInput.value = '';
+            if (detailsInput) detailsInput.value = '';
+            nameInput?.focus();
+        });
+
+        document.getElementById('emergencyContactCancel')?.addEventListener('click', () => {
+            const modal = document.getElementById('emergencyContactModal');
+            if (modal) modal.classList.add('hidden');
+        });
+
+        document.getElementById('emergencyContactForm')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('contactName')?.value;
+            const phone = document.getElementById('contactPhone')?.value;
+            const details = document.getElementById('contactDetails')?.value;
+            addEmergencyContact(name, phone, details);
+            const modal = document.getElementById('emergencyContactModal');
+            if (modal) modal.classList.add('hidden');
+        });
+
+        renderEmergencyContacts();
     }
 
     function setupDashboardSection() {
@@ -245,37 +340,229 @@
         }
     }
 
-    function handleSOS() {
-        document.getElementById('sosModal')?.classList.remove('hidden');
-        document.getElementById('sosLocation').textContent = 'Getting location...';
+    // -------------------- SOS Helpers & Logic --------------------
+
+    function withSosLocation(callback) {
+        if (lastKnownSosLocation) {
+            callback(lastKnownSosLocation);
+            return;
+        }
         MapModule.getUserLocation(pos => {
             if (pos) {
-                document.getElementById('sosLocation').textContent = `Your location: ${pos[0].toFixed(4)}, ${pos[1].toFixed(4)}`;
+                lastKnownSosLocation = pos;
+            }
+            callback(lastKnownSosLocation);
+        });
+    }
+
+    function buildSosMessage(pos) {
+        if (pos && Array.isArray(pos) && pos.length === 2) {
+            const lat = pos[0];
+            const lng = pos[1];
+            return [
+                '🚨 EMERGENCY ALERT',
+                'I need help.',
+                '',
+                'My location:',
+                `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`,
+                '',
+                'Please come immediately.'
+            ].join('\n');
+        }
+
+        return [
+            '🚨 EMERGENCY ALERT',
+            'I need help.',
+            '',
+            'My location could not be determined.',
+            '',
+            'Please come immediately.'
+        ].join('\n');
+    }
+
+    function handleSOS() {
+        const modal = document.getElementById('sosModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+
+        const sosLocationEl = document.getElementById('sosLocation');
+        const sosNearbyEl = document.getElementById('sosNearby');
+        const selectionEl = document.getElementById('sosContactsSelection');
+
+        if (sosLocationEl) sosLocationEl.textContent = 'Getting location...';
+        if (sosNearbyEl) sosNearbyEl.innerHTML = '';
+        if (selectionEl) selectionEl.classList.add('hidden');
+
+        withSosLocation(pos => {
+            if (pos) {
+                if (sosLocationEl) {
+                    sosLocationEl.textContent = `Your location: ${pos[0].toFixed(4)}, ${pos[1].toFixed(4)}`;
+                }
                 showSection('mapSection');
                 setTimeout(() => {
                     const map = MapModule.getMap();
                     if (map) map.setView(pos, 15);
                     SafeZonesModule.loadSafeZones(true);
-                    document.getElementById('sosNearby').innerHTML = '<p class="text-slate-300">Nearest safe zones loaded on map.</p>';
+                    if (sosNearbyEl) {
+                        sosNearbyEl.innerHTML = '<p class="text-slate-300">Nearest safe zones loaded on map.</p>';
+                    }
                 }, 100);
-            } else {
-                document.getElementById('sosLocation').textContent = 'Location unavailable';
+            } else if (sosLocationEl) {
+                sosLocationEl.textContent = 'Location unavailable';
             }
         });
     }
 
+    function handleCopyAlert() {
+        withSosLocation(pos => {
+            const msg = buildSosMessage(pos);
+            if (!navigator.clipboard) {
+                alert('Copy is not supported in this browser.');
+                return;
+            }
+            navigator.clipboard.writeText(msg).then(
+                () => alert('Emergency alert text copied to clipboard.'),
+                () => alert('Could not copy alert text.')
+            );
+        });
+    }
+
+    function openWhatsAppForContacts(contacts) {
+        if (!contacts || !contacts.length) {
+            alert('No emergency contacts selected.');
+            return;
+        }
+
+        withSosLocation(pos => {
+            const message = buildSosMessage(pos);
+            const encodedMsg = encodeURIComponent(message);
+
+            contacts.forEach(contact => {
+                const cleanedPhone = normalizePhoneNumber(contact.phone);
+                if (!cleanedPhone) return;
+                const url = `https://wa.me/${cleanedPhone}?text=${encodedMsg}`;
+                window.open(url, '_blank');
+            });
+        });
+    }
+
+    function handleSosSendAll() {
+        const contacts = getEmergencyContacts();
+        if (!contacts.length) {
+            alert('No emergency contacts added. Please add a contact first.');
+            return;
+        }
+        openWhatsAppForContacts(contacts);
+    }
+
+    function renderSosContactsSelection() {
+        const container = document.getElementById('sosContactsCheckboxList');
+        if (!container) return;
+        const contacts = getEmergencyContacts();
+
+        if (!contacts.length) {
+            container.innerHTML = '<p class="text-xs text-slate-400">No emergency contacts added yet.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+        contacts.forEach((c, index) => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex items-start gap-2';
+            wrapper.innerHTML = `
+                <input type="checkbox" class="mt-1 accent-emerald-500 sos-contact-checkbox" data-index="${index}">
+                <div>
+                    <p class="font-medium text-slate-100 text-sm">${c.name}</p>
+                    <p class="text-xs text-slate-300">+${c.phone}</p>
+                    ${c.details ? `<p class="text-[0.7rem] text-slate-400">${c.details}</p>` : ''}
+                </div>
+            `;
+            container.appendChild(wrapper);
+        });
+    }
+
+    function handleSosSendSelectedInit() {
+        const contacts = getEmergencyContacts();
+        if (!contacts.length) {
+            alert('No emergency contacts added. Please add a contact first.');
+            return;
+        }
+        renderSosContactsSelection();
+        const selectionEl = document.getElementById('sosContactsSelection');
+        if (selectionEl) selectionEl.classList.remove('hidden');
+    }
+
+    function handleSosSendSelectedConfirm() {
+        const checkboxes = document.querySelectorAll('.sos-contact-checkbox:checked');
+        if (!checkboxes.length) {
+            alert('Please select at least one contact.');
+            return;
+        }
+        const contacts = getEmergencyContacts();
+        const selected = [];
+        checkboxes.forEach(cb => {
+            const idx = parseInt(cb.getAttribute('data-index'), 10);
+            if (!isNaN(idx) && contacts[idx]) {
+                selected.push(contacts[idx]);
+            }
+        });
+        if (!selected.length) {
+            alert('No valid contacts selected.');
+            return;
+        }
+        openWhatsAppForContacts(selected);
+    }
+
+    function renderEmergencyContacts() {
+        const list = document.getElementById('emergencyContactsList');
+        if (!list) return;
+        const contacts = getEmergencyContacts();
+
+        if (!contacts.length) {
+            list.innerHTML = '<p class="text-sm text-slate-400">No emergency contacts added yet. Use the "Add Emergency Contact" button above to add someone you trust.</p>';
+            return;
+        }
+
+        list.innerHTML = '';
+        contacts.forEach((c, index) => {
+            const card = document.createElement('div');
+            card.className = 'flex items-start justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-3';
+            card.innerHTML = `
+                <div class="text-sm">
+                    <p class="font-semibold text-slate-100">${c.name}</p>
+                    <p class="text-slate-300 text-xs mt-1">Phone: +${c.phone}</p>
+                    ${c.details ? `<p class="text-slate-400 text-xs mt-1">Details: ${c.details}</p>` : ''}
+                </div>
+                <button class="text-xs px-2 py-1 rounded-md bg-red-600/80 hover:bg-red-500 text-white delete-emergency-contact" data-index="${index}">
+                    Delete
+                </button>
+            `;
+            list.appendChild(card);
+        });
+
+        list.querySelectorAll('.delete-emergency-contact').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.getAttribute('data-index'), 10);
+                deleteEmergencyContact(idx);
+            });
+        });
+    }
+
+    // Attach any HTML-accessed helpers to window to avoid scope issues
+    window.handleSOS = handleSOS;
+    window.handleCopyAlert = handleCopyAlert;
+    window.promptAddContact = function() {
+        const btn = document.getElementById('addEmergencyContactBtn');
+        btn?.click();
+    };
+
+    // Global listeners that rely on the handlers above
     document.getElementById('closeSos')?.addEventListener('click', () => document.getElementById('sosModal')?.classList.add('hidden'));
     document.getElementById('copyAlert')?.addEventListener('click', handleCopyAlert);
     document.getElementById('sosButton')?.addEventListener('click', handleSOS);
-
-    function handleCopyAlert() {
-        MapModule.getUserLocation(pos => {
-            const msg = pos
-                ? `SOS - I need help! Location: https://www.openstreetmap.org/?mlat=${pos[0]}&mlon=${pos[1]}#map=17/${pos[0]}/${pos[1]}`
-                : 'SOS - I need help! Location unavailable.';
-            navigator.clipboard?.writeText(msg).then(() => alert('Alert copied to clipboard'));
-        });
-    }
+    document.getElementById('sosSendAllBtn')?.addEventListener('click', handleSosSendAll);
+    document.getElementById('sosSendSelectedBtn')?.addEventListener('click', handleSosSendSelectedInit);
+    document.getElementById('sosSendSelectedConfirmBtn')?.addEventListener('click', handleSosSendSelectedConfirm);
 
     function setupAreaRating() {
         document.querySelectorAll('#areaRating span').forEach(star => {

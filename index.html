@@ -228,6 +228,21 @@
                     <div id="emergencyShareLink" class="mt-3 text-xs text-slate-400 break-all hidden"></div>
                 </div>
             </div>
+            <!-- Emergency Contacts Management -->
+            <div class="mt-8 bg-slate-800 rounded-xl p-6 border border-slate-700">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="font-semibold text-slate-200">Emergency Contacts</h3>
+                        <p class="text-xs text-slate-400 mt-1">Add trusted people who will receive your SOS alert on WhatsApp.</p>
+                    </div>
+                    <button id="addEmergencyContactBtn" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium text-sm shadow-sm">
+                        Add Emergency Contact
+                    </button>
+                </div>
+                <div id="emergencyContactsList" class="space-y-3 text-sm">
+                    <!-- Contacts will be rendered here -->
+                </div>
+            </div>
             <div class="mt-8 bg-slate-800 rounded-xl p-6 border border-slate-700">
                 <h3 class="font-semibold mb-4 text-slate-200">Nearby Safe Zones</h3>
                 <p class="text-sm text-slate-400 mb-4">Police stations, hospitals, and transit stops near you</p>
@@ -321,10 +336,58 @@
             <h2 class="text-xl font-bold mb-4">Emergency Assistance</h2>
             <p id="sosLocation" class="text-slate-400 mb-4">Getting your location...</p>
             <div id="sosNearby" class="mb-4 text-sm"></div>
-            <div class="flex gap-2">
-                <button id="copyAlert" class="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-medium">Copy Alert</button>
-                <button id="closeSos" class="flex-1 py-2 rounded-lg bg-slate-600 hover:bg-slate-500">Close</button>
+            <div class="mb-4 space-y-2">
+                <p class="text-xs text-slate-400">Choose how you want to send your SOS alert on WhatsApp:</p>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <button id="sosSendAllBtn" class="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-medium text-sm">
+                        Send to All Contacts
+                    </button>
+                    <button id="sosSendSelectedBtn" class="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 font-medium text-sm">
+                        Select Contacts
+                    </button>
+                </div>
             </div>
+            <div id="sosContactsSelection" class="mb-4 hidden">
+                <p class="text-xs text-slate-400 mb-2">Select who should receive your SOS alert:</p>
+                <div id="sosContactsCheckboxList" class="max-h-40 overflow-y-auto space-y-2 text-sm"></div>
+                <button id="sosSendSelectedConfirmBtn" class="mt-3 w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium text-sm">
+                    Send WhatsApp to Selected
+                </button>
+            </div>
+            <div class="flex gap-2">
+                <button id="copyAlert" class="flex-1 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 font-medium text-sm">Copy Alert Text</button>
+                <button id="closeSos" class="flex-1 py-2 rounded-lg bg-slate-600 hover:bg-slate-500 text-sm">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emergency Contact Modal -->
+    <div id="emergencyContactModal" class="fixed inset-0 z-[2100] bg-black/70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full border border-slate-700">
+            <h2 class="text-xl font-bold mb-4">Add Emergency Contact</h2>
+            <form id="emergencyContactForm" class="space-y-4">
+                <div>
+                    <label for="contactName" class="block text-sm text-slate-300 mb-1">Name</label>
+                    <input id="contactName" type="text" class="panel-input w-full" placeholder="Contact name" required>
+                </div>
+                <div>
+                    <label for="contactPhone" class="block text-sm text-slate-300 mb-1">Phone Number (with country code)</label>
+                    <input id="contactPhone" type="tel" class="panel-input w-full" placeholder="e.g. 919876543210" required>
+                    <p class="text-[0.7rem] text-slate-400 mt-1">We'll use this with WhatsApp Web (only numbers, no spaces).</p>
+                </div>
+                <div>
+                    <label for="contactDetails" class="block text-sm text-slate-300 mb-1">Details (optional)</label>
+                    <input id="contactDetails" type="text" class="panel-input w-full" placeholder="Relationship or description">
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium text-sm">
+                        Save Contact
+                    </button>
+                    <button type="button" id="emergencyContactCancel" class="flex-1 py-2 rounded-lg bg-slate-600 hover:bg-slate-500 text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
