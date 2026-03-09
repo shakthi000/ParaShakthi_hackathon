@@ -63,6 +63,7 @@
             <button id="toggleIncidents" class="toolbar-btn"><span>📍</span> Incidents</button>
             <button id="locateMe" class="toolbar-btn"><span>🎯</span> My Location</button>
             <button id="toggleLiveShare" class="toolbar-btn"><span>📡</span> Live Share</button>
+            <button id="toggleAiRisk" class="toolbar-btn"><span>🤖</span> AI Risk Prediction</button>
         </div>
 
         <!-- Left Panel - Route Search -->
@@ -228,6 +229,45 @@
                     <div id="emergencyShareLink" class="mt-3 text-xs text-slate-400 break-all hidden"></div>
                 </div>
             </div>
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                    <h3 class="font-semibold mb-3 text-slate-200">Community Guardian Network</h3>
+                    <p class="text-sm text-slate-400 mb-3">
+                        Volunteer as a Safety Guardian and appear on the map for nearby users who might need help.
+                    </p>
+                    <p id="guardianStatus" class="text-xs text-slate-400 mb-4">
+                        Guardian mode is currently inactive.
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="becomeGuardianBtn" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-medium text-sm">
+                            Become Guardian
+                        </button>
+                        <button id="disableGuardianBtn" class="px-4 py-2 rounded-lg bg-slate-600 hover:bg-slate-500 font-medium text-sm">
+                            Disable Guardian Mode
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                    <h3 class="font-semibold mb-3 text-slate-200">Evidence Capture Status</h3>
+                    <p id="evidenceAudioStatus" class="text-sm text-slate-300 mb-1">
+                        Audio Recording: Not started
+                    </p>
+                    <p id="evidencePhotoStatus" class="text-sm text-slate-300 mb-4">
+                        Photo Captured: No
+                    </p>
+                    <div class="flex flex-wrap gap-2 text-sm">
+                        <button id="downloadEvidenceAudio" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 font-medium">
+                            Download Audio
+                        </button>
+                        <button id="downloadEvidencePhoto" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 font-medium">
+                            Download Photo
+                        </button>
+                    </div>
+                    <p class="mt-3 text-[0.7rem] text-slate-400">
+                        Evidence is stored locally in your browser and is never uploaded.
+                    </p>
+                </div>
+            </div>
             <!-- Emergency Contacts Management -->
             <div class="mt-8 bg-slate-800 rounded-xl p-6 border border-slate-700">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -247,6 +287,38 @@
                 <h3 class="font-semibold mb-4 text-slate-200">Nearby Safe Zones</h3>
                 <p class="text-sm text-slate-400 mb-4">Police stations, hospitals, and transit stops near you</p>
                 <button id="emergencyLoadZones" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-medium">Load Safe Zones on Map</button>
+            </div>
+            <div class="mt-8 bg-slate-800 rounded-xl p-6 border border-slate-700">
+                <h3 class="font-semibold mb-3 text-slate-200">Safety Tools</h3>
+                <p class="text-sm text-slate-400 mb-4">
+                    Schedule a fake incoming call to help you exit uncomfortable situations safely.
+                </p>
+                <div class="space-y-3">
+                    <div>
+                        <label for="fakeCallName" class="block text-xs text-slate-300 mb-1">Caller name (optional)</label>
+                        <input id="fakeCallName" type="text" class="panel-input w-full text-sm" placeholder="e.g. Mom, Friend, Office">
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-300 mb-1">Call me in:</p>
+                        <div class="flex flex-wrap gap-3 text-xs text-slate-300">
+                            <label class="inline-flex items-center gap-1">
+                                <input type="radio" name="fakeCallDelay" value="10000" class="accent-emerald-500" checked>
+                                <span>10 seconds</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1">
+                                <input type="radio" name="fakeCallDelay" value="30000" class="accent-emerald-500">
+                                <span>30 seconds</span>
+                            </label>
+                            <label class="inline-flex items-center gap-1">
+                                <input type="radio" name="fakeCallDelay" value="60000" class="accent-emerald-500">
+                                <span>1 minute</span>
+                            </label>
+                        </div>
+                    </div>
+                    <button id="fakeCallTriggerBtn" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 font-medium text-sm">
+                        Fake Call Escape
+                    </button>
+                </div>
             </div>
         </div>
     </section>
@@ -337,13 +409,44 @@
             <p id="sosLocation" class="text-slate-400 mb-4">Getting your location...</p>
             <div id="sosNearby" class="mb-4 text-sm"></div>
             <div class="mb-4 space-y-2">
-                <p class="text-xs text-slate-400">Choose how you want to send your SOS alert on WhatsApp:</p>
+                <p class="text-xs text-slate-400">Send SOS via:</p>
+                <div id="sosChannelOptions" class="flex flex-wrap gap-3 text-xs text-slate-300 mb-1">
+                    <label class="inline-flex items-center gap-1">
+                        <input type="radio" name="sosChannel" value="whatsapp" class="accent-emerald-500" checked>
+                        <span>WhatsApp</span>
+                    </label>
+                    <label class="inline-flex items-center gap-1">
+                        <input type="radio" name="sosChannel" value="sms" class="accent-emerald-500">
+                        <span>SMS</span>
+                    </label>
+                    <label class="inline-flex items-center gap-1">
+                        <input type="radio" name="sosChannel" value="both" class="accent-emerald-500">
+                        <span>Both</span>
+                    </label>
+                </div>
                 <div class="flex flex-col sm:flex-row gap-2">
                     <button id="sosSendAllBtn" class="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-medium text-sm">
                         Send to All Contacts
                     </button>
                     <button id="sosSendSelectedBtn" class="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 font-medium text-sm">
                         Select Contacts
+                    </button>
+                </div>
+            </div>
+            <div class="mb-4 mt-2 border-t border-slate-700 pt-3">
+                <h3 class="text-sm font-semibold text-slate-200 mb-2">Evidence Capture</h3>
+                <p id="evidenceAudioStatus" class="text-xs text-slate-300 mb-1">
+                    Audio Recording: Not started
+                </p>
+                <p id="evidencePhotoStatus" class="text-xs text-slate-300 mb-2">
+                    Photo Captured: No
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <button id="downloadEvidenceAudio" class="flex-1 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-medium">
+                        Download Audio
+                    </button>
+                    <button id="downloadEvidencePhoto" class="flex-1 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-medium">
+                        Download Photo
                     </button>
                 </div>
             </div>
@@ -358,6 +461,47 @@
                 <button id="copyAlert" class="flex-1 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 font-medium text-sm">Copy Alert Text</button>
                 <button id="closeSos" class="flex-1 py-2 rounded-lg bg-slate-600 hover:bg-slate-500 text-sm">Close</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Fake Call Modal -->
+    <div id="fakeCallModal" class="fixed inset-0 z-[2050] bg-black/80 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 rounded-3xl w-full max-w-xs pb-6 pt-10 flex flex-col items-center relative border border-slate-700">
+            <p class="text-xs text-slate-400 mb-2">Incoming call</p>
+            <div id="fakeCallIncomingView" class="flex flex-col items-center">
+                <div class="w-20 h-20 rounded-full bg-slate-700 flex items-center justify-center mb-3">
+                    <span class="text-3xl">📞</span>
+                </div>
+                <p id="fakeCallCallerName" class="text-lg font-semibold mb-6">Family Member</p>
+                <div class="flex gap-8 mt-2">
+                    <button id="fakeCallDecline" class="flex flex-col items-center text-xs">
+                        <span class="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center mb-1">
+                            ✕
+                        </span>
+                        <span class="text-slate-300">Decline</span>
+                    </button>
+                    <button id="fakeCallAccept" class="flex flex-col items-center text-xs">
+                        <span class="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center mb-1">
+                            ✓
+                        </span>
+                        <span class="text-slate-300">Accept</span>
+                    </button>
+                </div>
+            </div>
+            <div id="fakeCallOnCallView" class="flex flex-col items-center hidden">
+                <div class="w-20 h-20 rounded-full bg-slate-700 flex items-center justify-center mb-3">
+                    <span class="text-3xl">🎧</span>
+                </div>
+                <p class="text-lg font-semibold mb-1">Family Member</p>
+                <p class="text-xs text-slate-400 mb-4">You are on a call...</p>
+                <p id="fakeCallTimer" class="text-sm font-mono text-slate-200 mb-6">00:00</p>
+                <button id="fakeCallClose" class="px-4 py-2 rounded-full bg-red-600 hover:bg-red-500 text-xs font-medium">
+                    End Call
+                </button>
+            </div>
+            <audio id="fakeCallRingtone" loop preload="auto" class="hidden">
+                <source src="https://actions.google.com/sounds/v1/alarms/phone_alerts_and_rings.ogg" type="audio/ogg">
+            </audio>
         </div>
     </div>
 
@@ -407,6 +551,11 @@
     <script src="js/safetyScore.js"></script>
     <script src="js/safezones.js"></script>
     <script src="js/shareLocation.js"></script>
+    <script src="js/aiDangerPrediction.js"></script>
+    <script src="js/guardianNetwork.js"></script>
+    <script src="js/evidenceCapture.js"></script>
+    <script src="js/smsSOS.js"></script>
+    <script src="js/fakeCallEscape.js"></script>
     <script src="js/app.js"></script>
     <script src="js/dashboard.js"></script>
 </body>

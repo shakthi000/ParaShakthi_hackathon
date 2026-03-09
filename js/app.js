@@ -150,6 +150,16 @@
         document.getElementById('startSharing')?.addEventListener('click', () => ShareLocationModule.startSharing());
         document.getElementById('stopSharing')?.addEventListener('click', () => ShareLocationModule.stopSharing());
 
+        document.getElementById('toggleAiRisk')?.addEventListener('click', () => {
+            try {
+                if (typeof AiDangerPredictionModule !== 'undefined') {
+                    AiDangerPredictionModule.toggle();
+                }
+            } catch (e) {
+                console.error('Failed to toggle AI risk prediction', e);
+            }
+        });
+
         setupAreaRating();
         setupIncidentFilters();
         updateSafetyStats();
@@ -309,6 +319,23 @@
         });
 
         renderEmergencyContacts();
+
+        // Initialize Community Guardian Network and Evidence Capture UI
+        try {
+            if (typeof GuardianNetworkModule !== 'undefined') {
+                GuardianNetworkModule.initUi();
+            }
+        } catch (e) {
+            console.error('Failed to initialize Guardian Network UI', e);
+        }
+
+        try {
+            if (typeof EvidenceCaptureModule !== 'undefined') {
+                EvidenceCaptureModule.initUi();
+            }
+        } catch (e) {
+            console.error('Failed to initialize Evidence Capture UI', e);
+        }
     }
 
     function setupDashboardSection() {
@@ -393,6 +420,15 @@
         if (sosNearbyEl) sosNearbyEl.innerHTML = '';
         if (selectionEl) selectionEl.classList.add('hidden');
 
+        // Start automatic evidence capture without blocking SOS flow
+        try {
+            if (typeof EvidenceCaptureModule !== 'undefined') {
+                EvidenceCaptureModule.startCapture();
+            }
+        } catch (e) {
+            console.error('Failed to start evidence capture', e);
+        }
+
         withSosLocation(pos => {
             if (pos) {
                 if (sosLocationEl) {
@@ -407,6 +443,22 @@
                         sosNearbyEl.innerHTML = '<p class="text-slate-300">Nearest safe zones loaded on map.</p>';
                     }
                 }, 100);
+
+                // Notify nearby guardians asynchronously
+                try {
+                    if (typeof GuardianNetworkModule !== 'undefined') {
+                        // fire-and-forget; do not block SOS UX
+                        setTimeout(() => {
+                            try {
+                                GuardianNetworkModule.notifyGuardians(pos);
+                            } catch (e) {
+                                console.error('Failed to notify guardians', e);
+                            }
+                        }, 0);
+                    }
+                } catch (e) {
+                    console.error('Guardian notification error', e);
+                }
             } else if (sosLocationEl) {
                 sosLocationEl.textContent = 'Location unavailable';
             }
@@ -557,7 +609,16 @@
     };
 
     // Global listeners that rely on the handlers above
-    document.getElementById('closeSos')?.addEventListener('click', () => document.getElementById('sosModal')?.classList.add('hidden'));
+    document.getElementById('closeSos')?.addEventListener('click', () => {
+        document.getElementById('sosModal')?.classList.add('hidden');
+        try {
+            if (typeof EvidenceCaptureModule !== 'undefined') {
+                EvidenceCaptureModule.stopRecording();
+            }
+        } catch (e) {
+            console.error('Failed to stop evidence recording', e);
+        }
+    });
     document.getElementById('copyAlert')?.addEventListener('click', handleCopyAlert);
     document.getElementById('sosButton')?.addEventListener('click', handleSOS);
     document.getElementById('sosSendAllBtn')?.addEventListener('click', handleSosSendAll);
