@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parashakthi - Safe Route Navigation Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['DM Sans', 'sans-serif'] },
+                    colors: {
+                        safe: { DEFAULT: '#10b981', dark: '#059669' },
+                        moderate: { DEFAULT: '#f59e0b', dark: '#d97706' },
+                        risky: { DEFAULT: '#ef4444', dark: '#dc2626' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="font-sans bg-slate-900 text-slate-100 min-h-screen">
+    <!-- Navbar -->
+    <nav class="fixed top-0 left-0 w-full bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-800 text-white shadow-lg backdrop-blur-md z-[1000]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">🛡️</span>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold">Parashakthi Safety Map</h1>
+                    <p class="text-[0.7rem] text-slate-200/80 hidden sm:block">AI-powered safe route navigation</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4 sm:gap-6 text-sm flex-wrap">
+                <a href="#" data-page="mapSection" class="nav-link hover:text-purple-300 font-medium">Map</a>
+                <a href="#" data-page="reportSection" class="nav-link hover:text-purple-300">Report Incident</a>
+                <a href="#" data-page="routesSection" class="nav-link hover:text-purple-300">Safe Routes</a>
+                <a href="#" data-page="emergencySection" class="nav-link hover:text-purple-300">Emergency</a>
+                <a href="#" data-page="dashboardSection" class="nav-link hover:text-purple-300">Dashboard</a>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="nightModeToggle" class="p-2 rounded-lg hover:bg-white/10" title="Night Safety Mode">🌙</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Night Mode Warning -->
+    <div id="nightWarning" class="fixed top-14 left-0 right-0 z-[950] bg-amber-500/90 text-slate-900 py-2 text-center font-medium hidden">
+        ⚠️ Night Safety Mode - Dangerous zones highlighted
+    </div>
+
+    <!-- ==================== MAP SECTION ==================== -->
+    <section id="mapSection" class="app-section active">
+        <!-- Map Toolbar -->
+        <div class="map-toolbar">
+            <button id="toggleHeatmap" class="toolbar-btn"><span>🔥</span> Heatmap</button>
+            <button id="toggleSafeZones" class="toolbar-btn"><span>🛡️</span> Safe Zones</button>
+            <button id="toggleIncidents" class="toolbar-btn"><span>📍</span> Incidents</button>
+            <button id="locateMe" class="toolbar-btn"><span>🎯</span> My Location</button>
+            <button id="toggleLiveShare" class="toolbar-btn"><span>📡</span> Live Share</button>
+        </div>
+
+        <!-- Left Panel - Route Search -->
+        <aside class="map-left-panel">
+            <h3 class="font-semibold mb-3 text-slate-200">Find Safe Route</h3>
+            <div class="space-y-2">
+                <input type="text" id="startLocation" placeholder="Start location" class="panel-input">
+                <input type="text" id="destination" placeholder="Destination" class="panel-input">
+                <button id="searchRoute" class="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium transition">
+                    Get Safe Route
+                </button>
+            </div>
+            <div id="routeInfo" class="mt-3 text-sm text-slate-400 hidden">
+                <p id="routeDistance"></p>
+                <p id="routeDuration"></p>
+            </div>
+        </aside>
+
+        <!-- Right Panel - Safety Stats -->
+        <aside class="map-right-panel">
+            <h3 class="font-semibold mb-3 text-slate-200">Safety Overview</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Route Score</span>
+                    <span id="routeSafetyScore" class="font-bold text-emerald-400">--</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Area Rating</span>
+                    <span id="areaRatingDisplay" class="font-bold">--</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Incidents Nearby</span>
+                    <span id="incidentCount" class="font-bold">0</span>
+                </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-600">
+                <h4 class="text-sm font-medium text-slate-400 mb-2">Rate This Area</h4>
+                <div class="star-rating flex gap-1" id="areaRating">
+                    <span data-rating="1">★</span><span data-rating="2">★</span><span data-rating="3">★</span>
+                    <span data-rating="4">★</span><span data-rating="5">★</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Map Container -->
+        <div class="map-wrapper">
+            <div id="map" class="map-full"></div>
+        </div>
+
+        <!-- Incident Filter Panel -->
+        <div class="map-filter-panel">
+            <h3 class="font-semibold mb-2 text-slate-200 text-sm">Incident Filters</h3>
+            <div class="space-y-1 text-xs text-slate-300">
+                <label class="flex items-center gap-2"><input type="checkbox" class="accent-emerald-500" data-incident-filter value="harassment" checked><span>Harassment</span></label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="accent-emerald-500" data-incident-filter value="theft" checked><span>Theft</span></label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="accent-emerald-500" data-incident-filter value="unsafe_street" checked><span>Unsafe street</span></label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="accent-emerald-500" data-incident-filter value="suspicious_activity" checked><span>Suspicious activity</span></label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="accent-emerald-500" data-incident-filter value="poor_lighting" checked><span>Poor lighting</span></label>
+            </div>
+        </div>
+
+        <!-- Bottom Legend -->
+        <div class="map-legend">
+            <h4 class="font-semibold mb-1 text-[0.75rem]">Risk Legend</h4>
+            <div class="flex items-center gap-2 mb-1"><span class="legend-dot bg-red-500"></span><span>High danger</span></div>
+            <div class="flex items-center gap-2 mb-1"><span class="legend-dot bg-orange-400"></span><span>Medium risk</span></div>
+            <div class="flex items-center gap-2"><span class="legend-dot bg-yellow-300"></span><span>Low risk</span></div>
+        </div>
+    </section>
+
+    <!-- ==================== REPORT SECTION ==================== -->
+    <section id="reportSection" class="app-section">
+        <div class="section-content">
+            <h2 class="text-2xl font-bold mb-6">Report Incident</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                    <h3 class="font-semibold mb-4 text-slate-200">Incident Details</h3>
+                    <form id="reportPageForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Incident Type</label>
+                            <select id="reportType" class="panel-input w-full" required>
+                                <option value="">Select type...</option>
+                                <option value="harassment">Harassment</option>
+                                <option value="unsafe_street">Unsafe Street</option>
+                                <option value="poor_lighting">Poor Lighting</option>
+                                <option value="theft">Theft</option>
+                                <option value="suspicious_activity">Suspicious Activity</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Severity</label>
+                            <select id="reportSeverity" class="panel-input w-full">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Additional Details (optional)</label>
+                            <textarea id="reportComment" rows="3" class="panel-input w-full" placeholder="Describe what happened..."></textarea>
+                        </div>
+                        <p class="text-sm text-slate-400">Click on the map to select incident location</p>
+                        <p id="reportLocationDisplay" class="text-sm text-emerald-400 hidden">Location selected</p>
+                        <button type="submit" class="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium">Submit Report</button>
+                    </form>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                    <h3 class="font-semibold mb-2 text-slate-200">Pick Location on Map</h3>
+                    <div id="reportMapPicker" class="rounded-lg overflow-hidden" style="height: 320px;"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== ROUTES SECTION ==================== -->
+    <section id="routesSection" class="app-section">
+        <div class="section-content">
+            <h2 class="text-2xl font-bold mb-6">Safe Routes</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                    <h3 class="font-semibold mb-4 text-slate-200">Plan Your Route</h3>
+                    <div class="space-y-3">
+                        <input type="text" id="routesStart" placeholder="Start location" class="panel-input w-full">
+                        <input type="text" id="routesDest" placeholder="Destination" class="panel-input w-full">
+                        <button id="routesSearchBtn" class="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium">Find Safe Route</button>
+                    </div>
+                    <div id="routesResult" class="mt-4 hidden">
+                        <div class="flex justify-between items-center py-2 border-b border-slate-600">
+                            <span class="text-slate-400">Safety Score</span>
+                            <span id="routesScore" class="font-bold text-emerald-400">--</span>
+                        </div>
+                        <p id="routesDistance" class="text-sm text-slate-400 mt-2"></p>
+                        <p id="routesDuration" class="text-sm text-slate-400"></p>
+                        <button id="routesViewOnMap" class="mt-3 text-sm text-emerald-400 hover:text-emerald-300">View on Map →</button>
+                    </div>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                    <h3 class="font-semibold mb-2 text-slate-200">Route Preview</h3>
+                    <div id="routesMapPreview" class="rounded-lg overflow-hidden" style="height: 320px;"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== EMERGENCY SECTION ==================== -->
+    <section id="emergencySection" class="app-section">
+        <div class="section-content">
+            <h2 class="text-2xl font-bold mb-6">Emergency</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 text-center">
+                    <h3 class="font-semibold mb-4 text-slate-200">Emergency SOS</h3>
+                    <button id="emergencySosBtn" class="w-24 h-24 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xl shadow-lg hover:scale-105 transition mx-auto flex items-center justify-center">
+                        SOS
+                    </button>
+                    <p class="text-sm text-slate-400 mt-3">Share your location with emergency contacts</p>
+                    <button id="emergencyCopyAlert" class="mt-4 px-4 py-2 rounded-lg bg-slate-600 hover:bg-slate-500 text-sm">Copy Alert Message</button>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-6 border border-slate-700">
+                    <h3 class="font-semibold mb-4 text-slate-200">Live Location Sharing</h3>
+                    <p id="emergencyShareStatus" class="text-sm text-slate-400 mb-3">Share your live location with trusted contacts</p>
+                    <button id="emergencyStartShare" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium">Start Sharing</button>
+                    <button id="emergencyStopShare" class="px-4 py-2 rounded-lg bg-slate-600 hover:bg-slate-500 hidden ml-2">Stop</button>
+                    <div id="emergencyShareLink" class="mt-3 text-xs text-slate-400 break-all hidden"></div>
+                </div>
+            </div>
+            <div class="mt-8 bg-slate-800 rounded-xl p-6 border border-slate-700">
+                <h3 class="font-semibold mb-4 text-slate-200">Nearby Safe Zones</h3>
+                <p class="text-sm text-slate-400 mb-4">Police stations, hospitals, and transit stops near you</p>
+                <button id="emergencyLoadZones" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-medium">Load Safe Zones on Map</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== DASHBOARD SECTION ==================== -->
+    <section id="dashboardSection" class="app-section">
+        <div class="section-content">
+            <h2 class="text-2xl font-bold mb-6">Dashboard</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                    <h3 class="text-slate-400 text-sm">Total Incidents</h3>
+                    <p id="totalIncidents" class="text-2xl font-bold text-emerald-400">0</p>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                    <h3 class="text-slate-400 text-sm">This Month</h3>
+                    <p id="thisMonth" class="text-2xl font-bold">0</p>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                    <h3 class="text-slate-400 text-sm">By Type</h3>
+                    <p id="incidentTypes" class="text-sm text-slate-300">--</p>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                    <h3 class="text-slate-400 text-sm">Top Risk Area</h3>
+                    <p id="topArea" class="text-sm text-slate-300">--</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                    <h3 class="font-semibold mb-4">Incidents by Type</h3>
+                    <canvas id="typeChart" class="max-h-64"></canvas>
+                </div>
+                <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                    <h3 class="font-semibold mb-4">Time Distribution</h3>
+                    <canvas id="timeChart" class="max-h-64"></canvas>
+                </div>
+            </div>
+            <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                <h3 class="font-semibold mb-4">Top Unsafe Areas</h3>
+                <div id="unsafeAreas" class="space-y-2"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Incident Report Popup Template (for map click) -->
+    <template id="incidentPopupTemplate">
+        <div class="incident-form p-2 min-w-[220px]">
+            <h4 class="font-semibold mb-2 text-slate-800">Report Incident</h4>
+            <form id="incidentForm">
+                <div class="space-y-2">
+                    <select id="incidentType" class="w-full px-2 py-1.5 rounded border text-sm" required>
+                        <option value="">Type...</option>
+                        <option value="harassment">Harassment</option>
+                        <option value="unsafe_street">Unsafe Street</option>
+                        <option value="poor_lighting">Poor Lighting</option>
+                        <option value="theft">Theft</option>
+                        <option value="suspicious_activity">Suspicious Activity</option>
+                    </select>
+                    <select id="incidentSeverity" class="w-full px-2 py-1.5 rounded border text-sm">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                    <textarea id="incidentComment" rows="2" placeholder="Additional details (optional)" class="w-full px-2 py-1.5 rounded border text-sm"></textarea>
+                    <button type="submit" class="w-full py-1.5 rounded bg-emerald-600 text-white text-sm font-medium">Submit</button>
+                </div>
+            </form>
+        </div>
+    </template>
+
+    <!-- Live Share Panel (floating) -->
+    <div id="liveSharePanel" class="fixed bottom-24 left-4 z-[800] bg-slate-800/95 backdrop-blur rounded-xl border border-slate-700 p-4 shadow-xl hidden">
+        <h3 class="font-semibold mb-2">Live Location Sharing</h3>
+        <p id="shareStatus" class="text-sm text-slate-400 mb-2">Share your location with trusted contacts</p>
+        <button id="startSharing" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium text-sm">Start Sharing</button>
+        <button id="stopSharing" class="px-4 py-2 rounded-lg bg-slate-600 hover:bg-slate-500 font-medium text-sm hidden ml-2">Stop</button>
+        <div id="shareLink" class="mt-2 text-xs text-slate-400 break-all hidden"></div>
+    </div>
+
+    <!-- Floating SOS Button (always visible) -->
+    <button id="sosButton" class="fixed bottom-6 right-6 z-[900] w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold shadow-lg hover:scale-105 transition flex items-center justify-center" title="Emergency SOS">
+        SOS
+    </button>
+
+    <!-- SOS Modal -->
+    <div id="sosModal" class="fixed inset-0 z-[2000] bg-black/70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full border border-slate-700">
+            <h2 class="text-xl font-bold mb-4">Emergency Assistance</h2>
+            <p id="sosLocation" class="text-slate-400 mb-4">Getting your location...</p>
+            <div id="sosNearby" class="mb-4 text-sm"></div>
+            <div class="flex gap-2">
+                <button id="copyAlert" class="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-medium">Copy Alert</button>
+                <button id="closeSos" class="flex-1 py-2 rounded-lg bg-slate-600 hover:bg-slate-500">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="firebase/firebaseConfig.js"></script>
+    <script src="firebase/firestore.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/routing.js"></script>
+    <script src="js/heatmap.js"></script>
+    <script src="js/incidents.js"></script>
+    <script src="js/safetyScore.js"></script>
+    <script src="js/safezones.js"></script>
+    <script src="js/shareLocation.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
